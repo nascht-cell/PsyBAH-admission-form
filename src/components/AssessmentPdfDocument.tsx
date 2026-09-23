@@ -538,7 +538,7 @@ const AssessmentPdfDocumentComponent: React.FC<Props> = ({ data, showPageBadges 
                   </div>
                 </div>
                 <div className="w-1/2 flex items-start pl-3">
-                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">8. Attn & Memory:</span>
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">8. Attention & Memory:</span>
                   <div className="flex-1 leading-tight text-justify">
                     {renderSingleValue(data.attentionMemory)}
                   </div>
