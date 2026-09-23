@@ -73,35 +73,38 @@ export default function App() {
 
   // Restore autosaved draft on first load
   useEffect(() => {
-    // Check for existing auto-saved draft
-    const draft = loadFormDraft();
-    if (draft && draft.data) {
-      const d = draft.data;
-      const hasContent = Boolean(
-        d.hn?.trim() ||
-        d.fullName?.trim() ||
-        d.hpiDetails?.trim() ||
-        (d.chiefComplaint && d.chiefComplaint.length > 0) ||
-        d.physicianName?.trim()
-      );
-
-      if (hasContent) {
-        isRestoringDraftRef.current = true;
-        setFormData(d);
-        const timeStr = new Date(draft.savedAt).toLocaleTimeString('th-TH', {
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-        });
-        setLastAutoSavedTime(timeStr);
-        setAutoSaveStatus('saved');
-        showToast(
-          'info',
-          'กู้คืนร่างที่บันทึกอัตโนมัติ (Auto-save Restored)',
-          `ดึงข้อมูลร่างล่าสุด (${timeStr}) ที่ทำงานค้างไว้กลับมาให้ท่านทำงานต่อได้ทันที`
+    const restoreDraft = async () => {
+      // Check for existing auto-saved draft
+      const draft = await loadFormDraft();
+      if (draft && draft.data) {
+        const d = draft.data;
+        const hasContent = Boolean(
+          d.hn?.trim() ||
+          d.fullName?.trim() ||
+          d.hpiDetails?.trim() ||
+          (d.chiefComplaint && d.chiefComplaint.length > 0) ||
+          d.physicianName?.trim()
         );
+
+        if (hasContent) {
+          isRestoringDraftRef.current = true;
+          setFormData(d);
+          const timeStr = new Date(draft.savedAt).toLocaleTimeString('th-TH', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
+          setLastAutoSavedTime(timeStr);
+          setAutoSaveStatus('saved');
+          showToast(
+            'info',
+            'กู้คืนร่างที่บันทึกอัตโนมัติ (Auto-save Restored)',
+            `ดึงข้อมูลร่างล่าสุด (${timeStr}) ที่ทำงานค้างไว้กลับมาให้ท่านทำงานต่อได้ทันที`
+          );
+        }
       }
-    }
+    };
+    restoreDraft();
   }, []);
 
   // Periodic debounced auto-save effect (1.2s after user stops typing)
@@ -126,9 +129,9 @@ export default function App() {
     // Set status to saving
     setAutoSaveStatus('saving');
 
-    const debounceTimer = setTimeout(() => {
-      // 1. Save draft to LocalStorage
-      saveFormDraft(formData);
+    const debounceTimer = setTimeout(async () => {
+      // 1. Save draft to LocalStorage with Encryption-at-Rest
+      await saveFormDraft(formData);
 
       const nowStr = new Date().toLocaleTimeString('th-TH', {
         hour: '2-digit',
@@ -398,9 +401,9 @@ export default function App() {
     }
   };
 
-  const handleLoadSamplePatient = () => {
+  const handleLoadSamplePatient = async () => {
     setFormData(samplePatientData);
-    saveFormDraft(samplePatientData);
+    await saveFormDraft(samplePatientData);
     const nowStr = new Date().toLocaleTimeString('th-TH', {
       hour: '2-digit',
       minute: '2-digit',
