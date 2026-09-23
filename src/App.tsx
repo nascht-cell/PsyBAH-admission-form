@@ -129,6 +129,13 @@ export default function App() {
       return;
     }
 
+    // Do not auto-save if form is completely empty/default to avoid overriding with blank draft
+    const isEmpty = !formData.hn?.trim() && !formData.fullName?.trim();
+    if (isEmpty) {
+      setAutoSaveStatus('idle');
+      return;
+    }
+
     // Set status to saving
     setAutoSaveStatus('saving');
 
@@ -349,8 +356,19 @@ export default function App() {
       showToast(
         'success',
         'บันทึกข้อมูลและสร้าง PDF สำเร็จ',
-        `บันทึกข้อมูล HN: ${formData.hn} แล้ว พร้อมส่งออก PDF ฟอนต์ TH Sarabun PSK ขนาด ๑๖ พอยท์ เรียบร้อย`
+        `บันทึกข้อมูล HN: ${formData.hn} แล้ว พร้อมส่งออก PDF ฟอนต์ TH Sarabun PSK ขนาด ๑๖ พอยท์ เรียบร้อย (ข้อมูลคนไข้ในฟอร์มถูกรีเซ็ตเพื่อความปลอดภัยทางข้อมูล)`
       );
+
+      // Clear draft and reset active form for patient data privacy on shared machines
+      clearFormDraft();
+      setFormData({
+        ...initialAssessmentData,
+        assessmentDate: new Date().toISOString().split('T')[0],
+        assessmentTime: new Date().toTimeString().slice(0, 5),
+      });
+      setErrors({});
+      setAutoSaveStatus('idle');
+      setLastAutoSavedTime(null);
     } catch (e) {
       console.error(e);
       showToast(
