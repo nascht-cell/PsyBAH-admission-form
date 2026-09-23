@@ -1,0 +1,716 @@
+import React from 'react';
+import { User, Activity, Calendar, Clock, CheckSquare } from 'lucide-react';
+import { AssessmentStepProps } from './AssessmentStepProps';
+import { InlineDictationButton } from '../InlineDictationButton';
+import { DebouncedInput } from './DebouncedInput';
+import { DebouncedTextarea } from './DebouncedTextarea';
+
+const Step1PatientAndComplaintComponent: React.FC<AssessmentStepProps> = ({
+  data,
+  onChange,
+  errors,
+  onBlurField,
+  onOpenDictation,
+  toggleArrayItem,
+  handleDurationChange,
+}) => {
+  return (
+    <div className="space-y-6">
+      {/* 0. Official Document Header Card (Mirrors A4 Document Header) */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-slate-900 text-white px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="h-14 w-auto flex items-center justify-center shrink-0">
+              <img
+                src="/Official_emblem_of_Bhumibol_Adulyadej_Hospital.jpg"
+                alt="ตราสัญลักษณ์โรงพยาบาลภูมิพลอดุลยเดช"
+                className="h-14 w-auto object-contain shrink-0 drop-shadow-sm"
+                style={{ aspectRatio: '200 / 283' }}
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+                Bhumibol Adulyadej Hospital · กองจิตเวชและประสาทวิทยา
+              </div>
+              <h2 className="text-lg font-bold text-white mt-0.5">
+                แบบบันทึกแรกรับผู้ป่วยจิตเวช (Mental Health Admission Form)
+              </h2>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+              <Calendar className="w-4 h-4 text-blue-400" />
+              <input
+                type="date"
+                value={data.assessmentDate}
+                onChange={e => onChange({ assessmentDate: e.target.value })}
+                onBlur={e => onBlurField && onBlurField('assessmentDate', e.target.value)}
+                className="bg-transparent text-white text-xs focus:outline-none cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <input
+                type="time"
+                value={data.assessmentTime}
+                onChange={e => onChange({ assessmentTime: e.target.value })}
+                onBlur={e => onBlurField && onBlurField('assessmentTime', e.target.value)}
+                className="bg-transparent text-white text-xs focus:outline-none cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 bg-slate-50/70 border-b border-slate-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                แผนก
+              </label>
+              <input
+                type="text"
+                value={data.department}
+                onChange={e => onChange({ department: e.target.value })}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ประเภทการรับผู้ป่วย <span className="text-red-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-3 mt-1">
+                {(['OPD', 'IPD', 'ER'] as const).map(type => (
+                  <label
+                    key={type}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors ${
+                      data.admissionType === type
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="admissionType"
+                      checked={data.admissionType === type}
+                      onChange={() => onChange({ admissionType: type })}
+                      className="sr-only"
+                    />
+                    <span>{type}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* SECTION A: Patient Identification (Mirrors A4 Document Page 1 Box 1) */}
+      <section id="section-a" className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="px-6 py-3.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <User className="w-5 h-5 text-blue-600" />
+            <h3 className="font-bold text-slate-900 text-base">
+              A. Patient Identification (ข้อมูลทั่วไป)
+            </h3>
+          </div>
+          <span className="text-xs text-slate-500 font-medium">ส่วนข้อมูลประจำตัวผู้ป่วย</span>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* HN */}
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>
+                  HN (Hospital Number) <span className="text-red-500">*</span>
+                </span>
+                {!data.hn?.trim() && (
+                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    จำเป็นต้องระบุ
+                  </span>
+                )}
+              </label>
+              <input
+                id="field-hn"
+                type="text"
+                value={data.hn}
+                onChange={e => onChange({ hn: e.target.value.trim() })}
+                onBlur={e => onBlurField && onBlurField('hn', e.target.value)}
+                placeholder="เช่น 67001234"
+                className={`w-full text-sm font-mono font-bold bg-white border rounded-lg px-3 py-2 transition-all focus:ring-2 focus:ring-blue-600 focus:outline-none ${
+                  errors.hn
+                    ? 'border-red-500 bg-red-50/50'
+                    : !data.hn?.trim()
+                    ? 'border-slate-300 border-l-4 border-l-rose-500 bg-rose-50/20'
+                    : 'border-slate-300'
+                }`}
+              />
+              {errors.hn && <p className="text-xs text-red-600 mt-1 font-medium">{errors.hn}</p>}
+            </div>
+
+            {/* AN */}
+            <div className="md:col-span-1">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                AN (ถ้ามี)
+              </label>
+              <input
+                type="text"
+                value={data.an}
+                onChange={e => onChange({ an: e.target.value.trim() })}
+                onBlur={e => onBlurField && onBlurField('an', e.target.value)}
+                placeholder="เช่น 67/0123"
+                className="w-full text-sm font-mono bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+
+            {/* Full Name */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>
+                  ชื่อ-สกุล <span className="text-red-500">*</span>
+                </span>
+                {!data.fullName?.trim() && (
+                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    จำเป็นต้องระบุ
+                  </span>
+                )}
+              </label>
+              <DebouncedInput
+                id="field-fullName"
+                type="text"
+                value={data.fullName}
+                onChangeValue={val => onChange({ fullName: val })}
+                onBlur={e => onBlurField && onBlurField('fullName', e.target.value)}
+                placeholder="ระบุชื่อและนามสกุลผู้ป่วย"
+                className={`w-full text-sm bg-white border rounded-lg px-3 py-2 transition-all focus:ring-2 focus:ring-blue-600 focus:outline-none ${
+                  errors.fullName
+                    ? 'border-red-500 bg-red-50/50'
+                    : !data.fullName?.trim()
+                    ? 'border-slate-300 border-l-4 border-l-rose-500 bg-rose-50/20'
+                    : 'border-slate-300'
+                }`}
+              />
+              {errors.fullName && (
+                <p className="text-xs text-red-600 mt-1 font-medium">{errors.fullName}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Age */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>
+                  อายุ (ปี) <span className="text-red-500">*</span>
+                </span>
+                {!data.age?.trim() && (
+                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    จำเป็น
+                  </span>
+                )}
+              </label>
+              <input
+                id="field-age"
+                type="number"
+                min="0"
+                max="130"
+                value={data.age}
+                onChange={e => onChange({ age: e.target.value })}
+                onBlur={e => onBlurField && onBlurField('age', e.target.value)}
+                placeholder="เช่น 35"
+                className={`w-full text-sm bg-white border rounded-lg px-3 py-2 transition-all focus:ring-2 focus:ring-blue-600 focus:outline-none ${
+                  errors.age
+                    ? 'border-red-500 bg-red-50/50'
+                    : !data.age?.trim()
+                    ? 'border-slate-300 border-l-4 border-l-rose-500 bg-rose-50/20'
+                    : 'border-slate-300'
+                }`}
+              />
+              {errors.age && (
+                <p className="text-xs text-red-600 mt-1 font-medium">{errors.age}</p>
+              )}
+            </div>
+
+            {/* Gender */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>
+                  เพศ <span className="text-red-500">*</span>
+                </span>
+                {!data.gender && (
+                  <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-1.5 py-0.5 rounded flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                    จำเป็น
+                  </span>
+                )}
+              </label>
+              <select
+                id="field-gender"
+                value={data.gender}
+                onChange={e => onChange({ gender: e.target.value as any })}
+                onBlur={e => onBlurField && onBlurField('gender', e.target.value)}
+                className={`w-full text-sm bg-white border rounded-lg px-3 py-2 transition-all focus:ring-2 focus:ring-blue-600 focus:outline-none ${
+                  errors.gender
+                    ? 'border-red-500 bg-red-50/50'
+                    : !data.gender
+                    ? 'border-slate-300 border-l-4 border-l-rose-500 bg-rose-50/20'
+                    : 'border-slate-300'
+                }`}
+              >
+                <option value="">-- เลือกเพศ --</option>
+                <option value="ชาย">ชาย</option>
+                <option value="หญิง">หญิง</option>
+                <option value="อื่นๆ">อื่นๆ</option>
+              </select>
+              {errors.gender && (
+                <p className="text-xs text-red-600 mt-1 font-medium">{errors.gender}</p>
+              )}
+            </div>
+
+            {/* Marital Status */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                สถานภาพสมรส
+              </label>
+              <select
+                value={data.maritalStatus}
+                onChange={e => onChange({ maritalStatus: e.target.value as any })}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="โสด">โสด</option>
+                <option value="สมรส">สมรส</option>
+                <option value="หม้าย/หย่า/แยก">หม้าย/หย่า/แยก</option>
+              </select>
+            </div>
+
+            {/* Occupation */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                อาชีพ
+              </label>
+              <input
+                type="text"
+                value={data.occupation}
+                onChange={e => onChange({ occupation: e.target.value })}
+                placeholder="เช่น ค้าขาย, ข้าราชการ"
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+            {/* Education Level */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ระดับการศึกษา
+              </label>
+              <input
+                type="text"
+                value={data.educationLevel}
+                onChange={e => onChange({ educationLevel: e.target.value })}
+                placeholder="เช่น มัธยมศึกษา, ปริญญาตรี"
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+
+            {/* Informant */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ผู้ให้ข้อมูลหลัก (Informant)
+              </label>
+              <div className="flex gap-4 items-center h-10">
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="informant"
+                    checked={data.informant === 'ผู้ป่วยเอง'}
+                    onChange={() => onChange({ informant: 'ผู้ป่วยเอง' })}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>ผู้ป่วยเอง</span>
+                </label>
+                <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="informant"
+                    checked={data.informant === 'ญาติ/ผู้ดูแล'}
+                    onChange={() => onChange({ informant: 'ญาติ/ผู้ดูแล' })}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>ญาติ/ผู้ดูแล</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Informant Detail if relative */}
+            {data.informant === 'ญาติ/ผู้ดูแล' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  ระบุความเกี่ยวข้อง
+                </label>
+                <DebouncedInput
+                  type="text"
+                  value={data.informantDetail}
+                  onChangeValue={val => onChange({ informantDetail: val })}
+                  placeholder="เช่น มารดา, สามี, บุตร"
+                  className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+            )}
+
+            {/* Reliability */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ความน่าเชื่อถือของข้อมูล (Reliability)
+              </label>
+              <select
+                value={data.reliability}
+                onChange={e => onChange({ reliability: e.target.value as any })}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="ดี (Good)">ดี (Good)</option>
+                <option value="พอใช้ (Fair)">พอใช้ (Fair)</option>
+                <option value="เชื่อถือไม่ได้ (Poor)">เชื่อถือไม่ได้ (Poor)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION B: Chief Complaint & HPI (Mirrors A4 Document Page 1 Box 2) */}
+      <section id="section-b" className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="px-6 py-3.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-blue-600" />
+            <h3 className="font-bold text-slate-900 text-base">
+              B. Chief Complaint & History of Present Illness (อาการสำคัญและประวัติปัจจุบัน)
+            </h3>
+          </div>
+          <span className="text-xs text-slate-500 font-medium">อาการสำคัญและประวัติเจ็บป่วย</span>
+        </div>
+
+        <div className="p-6 space-y-5">
+          {/* Chief Complaint */}
+          <div>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+              อาการสำคัญ (Chief Complaint) <span className="text-xs font-normal text-slate-500">(เลือกได้มากกว่า 1 ข้อ)</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {[
+                'ซึมเศร้า/ท้อแท้',
+                'หงุดหงิด/ก้าวร้าว',
+                'หูแว่ว/ประสาทหลอน',
+                'หวาดระแวง/หลงผิด',
+                'สับสน/หลงลืม',
+                'ทำร้ายตนเอง',
+                'มีปัญหาพฤติกรรม',
+              ].map(item => {
+                const isSelected = data.chiefComplaint.includes(item);
+                return (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => toggleArrayItem('chiefComplaint', item)}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg border text-left flex items-center gap-2 transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50 border-blue-500 text-blue-900 font-semibold shadow-2xs'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <CheckSquare
+                      className={`w-4 h-4 shrink-0 ${
+                        isSelected ? 'text-blue-600' : 'text-slate-300'
+                      }`}
+                    />
+                    <span className="truncate">{item}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-2.5 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500 font-medium">ระบุอาการสำคัญอื่นๆ เพิ่มเติม (ถ้ามี)</span>
+                <InlineDictationButton
+                  onTranscript={text => {
+                    const existing = data.chiefComplaintOther || '';
+                    onChange({ chiefComplaintOther: existing ? `${existing} ${text}` : text });
+                  }}
+                />
+              </div>
+              <DebouncedInput
+                type="text"
+                value={data.chiefComplaintOther}
+                onChangeValue={val => onChange({ chiefComplaintOther: val })}
+                onBlur={e => onBlurField && onBlurField('chiefComplaintOther', e.target.value)}
+                placeholder="ระบุอาการสำคัญอื่นๆ เพิ่มเติม (ถ้ามี)..."
+                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Duration, Onset, Course */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ระยะเวลาที่มีอาการ
+              </label>
+              <select
+                value={data.duration}
+                onChange={e => handleDurationChange(e.target.value)}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="">-- เลือกระยะเวลา --</option>
+                <option value="1 วัน">1 วัน</option>
+                <option value="< 1 สัปดาห์">&lt; 1 สัปดาห์</option>
+                <option value="1-4 สัปดาห์">1-4 สัปดาห์</option>
+                <option value="1-6 เดือน">1-6 เดือน</option>
+                <option value="> 6 เดือน">&gt; 6 เดือน</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                ลักษณะการเกิดอาการ (Onset)
+              </label>
+              <select
+                value={data.onset}
+                onChange={e => onChange({ onset: e.target.value as any })}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="เฉียบพลัน (Acute)">เฉียบพลัน (Acute)</option>
+                <option value="ค่อยเป็นค่อยไป (Gradual)">ค่อยเป็นค่อยไป (Gradual)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                การดำเนินโรค (Course)
+              </label>
+              <select
+                value={data.course}
+                onChange={e => onChange({ course: e.target.value as any })}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="ดีขึ้นสลับแย่ลง (Fluctuating)">ดีขึ้นสลับแย่ลง (Fluctuating)</option>
+                <option value="แย่ลงเรื่อยๆ (Progressive)">แย่ลงเรื่อยๆ (Progressive)</option>
+                <option value="คงที่ (Stable)">คงที่ (Stable)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Precipitating Factors & Associated Symptoms */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                ปัจจัยกระตุ้น (Precipitating factors)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'ปัญหาครอบครัว/ความสัมพันธ์',
+                  'การเงิน/การงาน',
+                  'ขาดยา',
+                  'ใช้สารเสพติด',
+                  'โรคทางกายกำเริบ',
+                  'ไม่พบปัจจัยชัดเจน',
+                ].map(factor => {
+                  const active = data.precipitatingFactors.includes(factor);
+                  return (
+                    <button
+                      key={factor}
+                      type="button"
+                      onClick={() => toggleArrayItem('precipitatingFactors', factor)}
+                      className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-blue-100 text-blue-800 border-blue-400 font-semibold'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {active ? '✓ ' : '+ '}
+                      {factor}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                อาการร่วมที่สำคัญ (Associated symptoms)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  'นอนไม่หลับ',
+                  'เบื่ออาหาร',
+                  'น้ำหนักลด/เพิ่ม',
+                  'อ่อนเพลีย',
+                  'แยกตัว',
+                  'พฤติกรรมแปลกไปจากเดิม',
+                ].map(symptom => {
+                  const active = data.associatedSymptoms.includes(symptom);
+                  return (
+                    <button
+                      key={symptom}
+                      type="button"
+                      onClick={() => toggleArrayItem('associatedSymptoms', symptom)}
+                      className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-blue-100 text-blue-800 border-blue-400 font-semibold'
+                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      {active ? '✓ ' : '+ '}
+                      {symptom}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Detailed HPI text */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                รายละเอียดประวัติปัจจุบันเพิ่มเติม (HPI Details)
+              </label>
+              <InlineDictationButton
+                onTranscript={text => {
+                  const existing = data.hpiDetails || '';
+                  onChange({ hpiDetails: existing ? `${existing} ${text}` : text });
+                }}
+              />
+              {onOpenDictation && (
+                <button
+                  type="button"
+                  onClick={() => onOpenDictation('hpiDetails')}
+                  className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 bg-red-50 hover:bg-red-100 px-2 py-0.5 rounded border border-red-200 transition-colors cursor-pointer"
+                  title="บันทึกเสียงและถอดความด้วยโมเดล gemini-3.5-transcribe"
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                  <span>ถอดความเสียง AI</span>
+                </button>
+              )}
+            </div>
+            <DebouncedTextarea
+              rows={3}
+              value={data.hpiDetails}
+              onChangeValue={val => onChange({ hpiDetails: val })}
+              onBlur={e => onBlurField && onBlurField('hpiDetails', e.target.value)}
+              placeholder="บันทึกเรื่องราวการเจ็บป่วย เหตุการณ์นำมา ลำดับอาการ พฤติกรรมที่สังเกตได้..."
+              className="w-full text-sm bg-white border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+            />
+          </div>
+
+          {/* Previous treatment & response */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-slate-100">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                การรักษาก่อนหน้า
+              </label>
+              <select
+                value={data.previousTreatment}
+                onChange={e => {
+                  const val = e.target.value as any;
+                  onChange({
+                    previousTreatment: val,
+                    ...(val === 'ไม่เคยรักษาจิตเวชมาก่อน' ? { previousHospital: '', previousResponse: '' } : {}),
+                  });
+                }}
+                className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              >
+                <option value="ไม่เคยรักษาจิตเวชมาก่อน">ไม่เคยรักษาจิตเวชมาก่อน</option>
+                <option value="เคยรักษา">เคยรักษา</option>
+              </select>
+            </div>
+
+            {data.previousTreatment === 'เคยรักษา' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    เคยรักษาที่ (ระบุ รพ./คลินิก)
+                  </label>
+                  <DebouncedInput
+                    type="text"
+                    value={data.previousHospital}
+                    onChangeValue={val => onChange({ previousHospital: val })}
+                    placeholder="ระบุสถานพยาบาลเดิม"
+                    className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    ผลการรักษาเดิม
+                  </label>
+                  <select
+                    value={data.previousResponse}
+                    onChange={e => onChange({ previousResponse: e.target.value as any })}
+                    className="w-full text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                  >
+                    <option value="">-- เลือกผลการรักษา --</option>
+                    <option value="ตอบสนองดี">ตอบสนองดี</option>
+                    <option value="ตอบสนองบางส่วน">ตอบสนองบางส่วน</option>
+                    <option value="ไม่ตอบสนอง">ไม่ตอบสนอง</option>
+                    <option value="มีผลข้างเคียงจากยา">มีผลข้างเคียงจากยา</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+export const Step1PatientAndComplaint = React.memo(Step1PatientAndComplaintComponent, (prevProps, nextProps) => {
+  const step1Keys: (keyof typeof prevProps.data)[] = [
+    'assessmentDate',
+    'assessmentTime',
+    'admissionType',
+    'fullName',
+    'age',
+    'gender',
+    'hn',
+    'an',
+    'maritalStatus',
+    'occupation',
+    'educationLevel',
+    'informant',
+    'informantDetail',
+    'reliability',
+    'chiefComplaint',
+    'chiefComplaintOther',
+    'duration',
+    'onset',
+    'course',
+    'precipitatingFactors',
+    'precipitatingFactorsOther',
+    'associatedSymptoms',
+    'hpiDetails',
+    'previousTreatment',
+    'previousHospital',
+    'previousResponse'
+  ];
+
+  for (const key of step1Keys) {
+    if (prevProps.data[key] !== nextProps.data[key]) {
+      return false;
+    }
+  }
+
+  const errorKeys = ['hn', 'fullName', 'age', 'gender'];
+  for (const key of errorKeys) {
+    if (prevProps.errors[key] !== nextProps.errors[key]) {
+      return false;
+    }
+  }
+
+  return true;
+});

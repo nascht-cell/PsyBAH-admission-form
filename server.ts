@@ -1,0 +1,96 @@
+import express from 'express';
+import { createServer as createViteServer } from 'vite';
+import { GoogleGenAI } from '@google/genai';
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config();
+
+const app = express();
+const port = 3000;
+
+// Body parser with high limit for audio payloads
+app.use(express.json({ limit: '60mb' }));
+app.use(express.urlencoded({ extended: true, limit: '60mb' }));
+
+// Initialize GoogleGenAI with server-side API key if available
+let ai: GoogleGenAI | null = null;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+  } catch (err) {
+    console.warn('Could not initialize GoogleGenAI client:', err);
+  }
+}
+
+// Audio transcription endpoint
+app.post('/api/transcribe', async (req, res) => {
+  try {
+    const { audioData, mimeType } = req.body;
+    if (!audioData) {
+      return res.status(400).json({ error: 'audioData is required' });
+    }
+
+    if (!ai) {
+      return res.status(503).json({
+        error: 'ระบบถอดความบนเซิร์ฟเวอร์ไม่ได้เปิดใช้งาน (ไม่มี GEMINI_API_KEY) กรุณาใช้ระบบแปลงเสียงพูดสดในเบราว์เซอร์',
+      });
+    }
+
+    const audioPart = {
+      inlineData: {
+        mimeType: mimeType || 'audio/webm',
+        data: audioData, // base64 encoded string
+      },
+    };
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.5-transcribe',
+      contents: {
+        parts: [
+          audioPart,
+          {
+            text: 'ถอดความบันทึกเสียงนี้เป็นข้อความภาษาไทยอย่างถูกต้อง ชัดเจน และคงศัพท์ทางการแพทย์/จิตเวชอย่างแม่นยำ (Transcribe this clinical psychiatric audio accurately in Thai)',
+          },
+        ],
+      },
+    });
+
+    const transcribedText = response.text || '';
+    res.json({ text: transcribedText });
+  } catch (error: any) {
+    console.error('Transcription error:', error);
+    res.status(500).json({
+      error: error?.message || 'Failed to transcribe audio with gemini-3.5-transcribe',
+    });
+  }
+});
+
+// Mount Vite or serve static
+async function startServer() {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.resolve('.', 'dist')));
+    app.get('*', (req, res) => {
+      res.sendFile(path.resolve('.', 'dist', 'index.html'));
+    });
+  }
+
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Server listening at http://0.0.0.0:${port}`);
+  });
+}
+
+startServer();
