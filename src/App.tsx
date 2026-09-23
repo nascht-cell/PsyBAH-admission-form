@@ -48,20 +48,6 @@ const AssessmentPdfDocument = React.lazy(() =>
   import('./components/AssessmentPdfDocument').then(m => ({ default: m.AssessmentPdfDocument }))
 );
 
-const FORM_SECTIONS = [
-  { id: 'section-a', label: 'A. ข้อมูลทั่วไป' },
-  { id: 'section-b', label: 'B. อาการสำคัญ/HPI' },
-  { id: 'section-c', label: 'C. ประวัติอดีต' },
-  { id: 'section-d', label: 'D. ตรวจสภาพจิต' },
-  { id: 'section-e', label: 'E. ประเมินความเสี่ยง' },
-  { id: 'section-f', label: 'F. สัญญาณชีพ/ร่างกาย' },
-  { id: 'section-g', label: 'G. ด้านจิตสังคม' },
-  { id: 'section-h', label: 'H. แบบทดสอบ' },
-  { id: 'section-i-j', label: 'I-J. ผลแล็บ/วินิจฉัย' },
-  { id: 'section-k', label: 'K. แผนรักษา/ยา' },
-  { id: 'section-l-m', label: 'L-M. ข้อบ่งชี้/ส่งต่อ' },
-];
-
 const REQUIRED_FIELDS = [
   { key: 'hn', id: 'field-hn', label: 'HN (Hospital Number)', error: 'กรุณาระบุเลข HN ของผู้ป่วย' },
   { key: 'fullName', id: 'field-fullName', label: 'ชื่อ-สกุลผู้ป่วย', error: 'กรุณาระบุชื่อและนามสกุลผู้ป่วย' },
@@ -86,60 +72,6 @@ export default function App() {
     description: string;
   } | null>(null);
   const [savedCount, setSavedCount] = useState(0);
-  const [activeSection, setActiveSection] = useState('section-a');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-
-  // Shrink/collapse header on scroll down to maximize working space for clinical form
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY > 40;
-      setIsHeaderCollapsed(scrolled);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-
-  // Track active section via IntersectionObserver to highlight navigation bar
-  useEffect(() => {
-    const observerOptions = {
-      root: null,
-      rootMargin: '-10% 0px -75% 0px',
-      threshold: 0,
-    };
-
-    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          setActiveSection(entry.target.id);
-        }
-      });
-    };
-
-    const observer = new IntersectionObserver(handleIntersect, observerOptions);
-
-    // Give the DOM a tiny moment to render the sections before observing
-    const timer = setTimeout(() => {
-      FORM_SECTIONS.forEach(sec => {
-        const el = document.getElementById(sec.id);
-        if (el) observer.observe(el);
-      });
-    }, 1000);
-
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
-  }, []);
-
-  const handleScrollToSection = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
 
   // Auto-save status and debounce tracking
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -586,35 +518,21 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col text-slate-800 w-full max-w-full overflow-x-hidden">
-      {/* Top Bar Contract (3 zones) - Collapses/shrinks on scroll */}
-      <header
-        className={`sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs no-print transition-all duration-300 ${
-          isHeaderCollapsed ? 'py-1.5' : 'py-3'
-        }`}
-      >
-        <div
-          className={`max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-300 ${
-            isHeaderCollapsed ? 'h-10 sm:h-11' : 'h-14 sm:h-16'
-          }`}
-        >
+      {/* Top Bar - Clean and Static */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-xs no-print py-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between gap-3 sm:gap-4 h-14 sm:h-16">
           {/* Zone 1: Single brand title wordmark with live patient status badge */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <img
               src="/Official_emblem_of_Bhumibol_Adulyadej_Hospital.jpg"
               alt="ตราสัญลักษณ์ รพ.ภูมิพลอดุลยเดช"
-              className={`w-auto object-contain shrink-0 drop-shadow-xs transition-all duration-300 ${
-                isHeaderCollapsed ? 'h-7 sm:h-8' : 'h-10'
-              }`}
+              className="w-auto object-contain shrink-0 drop-shadow-xs h-10"
               style={{ aspectRatio: '200 / 283' }}
               referrerPolicy="no-referrer"
             />
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={`font-bold tracking-tight text-slate-900 block leading-tight transition-all duration-300 ${
-                    isHeaderCollapsed ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'
-                  }`}
-                >
+                <span className="font-bold tracking-tight text-slate-900 block leading-tight text-sm sm:text-base">
                   แบบบันทึกแรกรับผู้ป่วยจิตเวช
                 </span>
                 {formData.hn ? (
@@ -627,19 +545,17 @@ export default function App() {
                   </span>
                 )}
               </div>
-              {!isHeaderCollapsed && (
-                <span className="text-[11px] text-slate-500 hidden sm:block animate-fadeIn mt-0.5">
-                  {formData.fullName ? (
-                    <span className="text-slate-700 font-semibold">แก้ไข: {formData.fullName} ({formData.age} ปี)</span>
-                  ) : (
-                    'รพ.ภูมิพลอดุลยเดช · Mental Health Admission Form'
-                  )}
-                </span>
-              )}
+              <span className="text-[11px] text-slate-500 hidden sm:block animate-fadeIn mt-0.5">
+                {formData.fullName ? (
+                  <span className="text-slate-700 font-semibold">แก้ไข: {formData.fullName} ({formData.age} ปี)</span>
+                ) : (
+                  'รพ.ภูมิพลอดุลยเดช · Mental Health Admission Form'
+                )}
+              </span>
             </div>
           </div>
 
-          {/* Zone 2: Navigation Links & HN Fast Lookup */}
+          {/* Zone 2: HN Fast Lookup */}
           <div className="flex items-center gap-3 flex-1 max-w-sm justify-center">
             <form onSubmit={handleQuickHnSearch} className="w-full relative">
               <input
@@ -647,16 +563,12 @@ export default function App() {
                 value={topHnQuery}
                 onChange={(e) => setTopHnQuery(e.target.value)}
                 placeholder="พิมพ์ HN เพื่อค้นหา/แก้ไข..."
-                className={`w-full pl-9 pr-20 text-xs bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium transition-all ${
-                  isHeaderCollapsed ? 'py-1' : 'py-1.5'
-                }`}
+                className="w-full pl-9 pr-20 text-xs bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium py-1.5"
               />
-              <Search className={`w-3.5 h-3.5 text-slate-400 absolute left-3 ${isHeaderCollapsed ? 'top-2' : 'top-2.5'}`} />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <button
                 type="submit"
-                className={`absolute right-1 px-2.5 bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
-                  isHeaderCollapsed ? 'top-0.5 bottom-0.5' : 'top-1 bottom-1'
-                }`}
+                className="absolute right-1 px-2.5 bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-medium rounded-md transition-colors cursor-pointer top-1 bottom-1"
               >
                 ค้นหา HN
               </button>
@@ -671,9 +583,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleLoadSamplePatient}
-              className={`text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                isHeaderCollapsed ? 'px-2 py-1' : 'px-2.5 sm:px-3 py-1.5'
-              }`}
+              className="text-xs font-semibold text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer px-2.5 sm:px-3 py-1.5"
               title="ใส่ข้อมูลผู้ป่วยสมมติเพื่อทดสอบหน้าเอกสารและการพิมพ์"
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -684,9 +594,7 @@ export default function App() {
             <button
               type="button"
               onClick={handleResetForm}
-              className={`text-xs font-semibold text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 border border-slate-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                isHeaderCollapsed ? 'px-2 py-1' : 'px-2 py-1.5'
-              }`}
+              className="text-xs font-semibold text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 border border-slate-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer px-2 py-1.5"
               title="ล้างข้อมูลทั้งหมดในฟอร์มเพื่อเริ่มประเมินผู้ป่วยรายใหม่"
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -695,9 +603,7 @@ export default function App() {
 
             <button
               onClick={() => setIsSearchModalOpen(true)}
-              className={`text-xs font-medium text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-                isHeaderCollapsed ? 'px-2 py-1' : 'px-2 sm:px-2.5 py-1.5'
-              }`}
+              className="text-xs font-medium text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer px-2 sm:px-2.5 py-1.5"
               title="ดูประวัติผู้ป่วยทั้งหมดที่บันทึกไว้"
             >
               <History className="w-3.5 h-3.5 text-blue-600 shrink-0" />
@@ -711,35 +617,6 @@ export default function App() {
           </div>
         </div>
       </header>
-
-      {/* Sticky Section Quick Navigation Bar (Visible on all screens) */}
-      <div
-        className={`sticky z-30 bg-slate-900 text-white border-b border-slate-800 shadow-sm px-4 no-print overflow-x-auto scrollbar-none transition-all duration-300 ${
-          isHeaderCollapsed ? 'top-[47px] sm:top-[51px] py-1.5' : 'top-16 py-2'
-        }`}
-      >
-        <div className="max-w-6xl mx-auto w-full flex items-center gap-1.5 shrink-0 select-none">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mr-2 hidden md:inline shrink-0">
-            ส่วนประเมิน:
-          </span>
-          {FORM_SECTIONS.map(sec => {
-            const isActive = activeSection === sec.id;
-            return (
-              <button
-                key={sec.id}
-                onClick={() => handleScrollToSection(sec.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? 'bg-blue-600 text-white ring-2 ring-blue-400/40 font-bold'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`}
-              >
-                {sec.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {/* Floating Toast Notification */}
       {toastMessage && (
