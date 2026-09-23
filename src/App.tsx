@@ -25,19 +25,12 @@ import { PsychiatricAssessmentForm } from './components/PsychiatricAssessmentFor
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import {
-  saveAssessmentToStorage,
-  getAssessmentByHN,
-  getRecordsIndex,
-  initializeSampleDataIfEmpty,
   saveFormDraft,
   loadFormDraft,
   clearFormDraft,
 } from './utils/storage';
 
 // Code-split heavy modals and printable components for ultra-fast initial page load
-const HnSearchModal = React.lazy(() =>
-  import('./components/HnSearchModal').then(m => ({ default: m.HnSearchModal }))
-);
 const PdfPreviewModal = React.lazy(() =>
   import('./components/PdfPreviewModal').then(m => ({ default: m.PdfPreviewModal }))
 );
@@ -59,8 +52,6 @@ const REQUIRED_FIELDS = [
 export default function App() {
   const [formData, setFormData] = useState<PsychiatricAssessment>(initialAssessmentData);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [topHnQuery, setTopHnQuery] = useState('');
-  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isDictationModalOpen, setIsDictationModalOpen] = useState(false);
   const [dictationTargetField, setDictationTargetField] = useState('hpiDetails');
@@ -71,7 +62,6 @@ export default function App() {
     title: string;
     description: string;
   } | null>(null);
-  const [savedCount, setSavedCount] = useState(0);
 
   // Auto-save status and debounce tracking
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -81,11 +71,8 @@ export default function App() {
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
 
-  // Initialize sample data and restore autosaved draft on first load
+  // Restore autosaved draft on first load
   useEffect(() => {
-    initializeSampleDataIfEmpty();
-    updateSavedCount();
-
     // Check for existing auto-saved draft
     const draft = loadFormDraft();
     if (draft && draft.data) {
@@ -143,12 +130,6 @@ export default function App() {
       // 1. Save draft to LocalStorage
       saveFormDraft(formData);
 
-      // 2. If HN is provided, also sync with main storage
-      if (formData.hn && formData.hn.trim().length >= 1) {
-        saveAssessmentToStorage(formData);
-        updateSavedCount();
-      }
-
       const nowStr = new Date().toLocaleTimeString('th-TH', {
         hour: '2-digit',
         minute: '2-digit',
@@ -163,14 +144,10 @@ export default function App() {
     };
   }, [formData]);
 
-  // Safety beforeunload hook to ensure immediate save when tab or browser closes
+  // Security destruction on close: wipe draft immediately when closing the tab or window
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const current = formDataRef.current;
-      saveFormDraft(current);
-      if (current.hn && current.hn.trim().length >= 1) {
-        saveAssessmentToStorage(current);
-      }
+      clearFormDraft();
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
@@ -178,10 +155,59 @@ export default function App() {
     };
   }, []);
 
-  const updateSavedCount = () => {
-    const list = getRecordsIndex();
-    setSavedCount(list.length);
-  };
+  // Security inactivity and tab visibility timeout (5 minutes)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        // Security clean wipe after 5 minutes of inactivity or tab hidden
+        const isFormEmpty = !formDataRef.current.hn?.trim() && !formDataRef.current.fullName?.trim();
+        if (!isFormEmpty) {
+          clearFormDraft();
+          setFormData({
+            ...initialAssessmentData,
+            assessmentDate: new Date().toISOString().split('T')[0],
+            assessmentTime: new Date().toTimeString().slice(0, 5),
+          });
+          setErrors({});
+          setAutoSaveStatus('idle');
+          setLastAutoSavedTime(null);
+          showToast(
+            'info',
+            'ล้างข้อมูลเพื่อความปลอดภัย',
+            'ตรวจพบการหยุดใช้งานหน้าจอหรือแอปพลิเคชันถูกย่อไว้นานเกิน 5 นาที ระบบจึงได้ทำลายแบบร่างทันที'
+          );
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    };
+
+    // Activity listeners
+    const events = ['mousemove', 'keydown', 'mousedown', 'scroll', 'touchstart'];
+    const opts = { passive: true };
+    const handleEvent = () => resetTimer();
+    
+    events.forEach(evt => window.addEventListener(evt, handleEvent, opts));
+
+    // Visibility change listener (e.g. minimizing, closing tab, switching tab)
+    const handleVisibilityChange = () => {
+      // When visibility changes (hiding or returning), we refresh/reset the 5-minute security timer.
+      // If they switch away (hidden), the 5-minute countdown starts. If they stay away > 5 minutes, it wipes.
+      // If they return to the app (visible) under 5 minutes, the timer restarts, keeping their active draft fully intact.
+      resetTimer();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Start initial timer
+    resetTimer();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach(evt => window.removeEventListener(evt, handleEvent));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   const showToast = (type: 'success' | 'error' | 'info', title: string, description: string) => {
     setToastMessage({ type, title, description });
@@ -330,7 +356,7 @@ export default function App() {
     window.print();
   };
 
-  // 1. Save and Download PDF (Main user requirement 1) with TH Sarabun PSK 16pt
+  // 1. Download PDF (Main user requirement 1) with TH Sarabun PSK 16pt and Auto-Reset for Data Security
   const handleSaveAndDownloadPdf = async () => {
     if (!validateForm()) {
       return;
@@ -338,25 +364,16 @@ export default function App() {
 
     setIsSavingAndExporting(true);
 
-    // Save to local storage
-    const saved = saveAssessmentToStorage(formData);
-    if (!saved) {
-      setIsSavingAndExporting(false);
-      showToast('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลลงใน Local Storage ได้');
-      return;
-    }
-
-    updateSavedCount();
-
-    // Trigger PDF download with TH Sarabun PSK 16pt layout
-    const fileName = `Psychiatric_Assessment_HN_${formData.hn}_${formData.assessmentDate}.pdf`;
+    // Extract only digits from the HN field
+    const cleanHn = formData.hn.replace(/\D/g, '');
+    const fileName = `${cleanHn || 'Admission'} Admission note.pdf`;
     try {
       const { exportElementToA4Pdf } = await import('./utils/pdfGenerator');
       await exportElementToA4Pdf('offscreen-pdf-document', fileName, formData);
       showToast(
         'success',
-        'บันทึกข้อมูลและสร้าง PDF สำเร็จ',
-        `บันทึกข้อมูล HN: ${formData.hn} แล้ว พร้อมส่งออก PDF ฟอนต์ TH Sarabun PSK ขนาด ๑๖ พอยท์ เรียบร้อย (ข้อมูลคนไข้ในฟอร์มถูกรีเซ็ตเพื่อความปลอดภัยทางข้อมูล)`
+        'สร้าง PDF สำเร็จ',
+        `ส่งออก PDF ฟอนต์ TH Sarabun PSK ขนาด ๑๖ พอยท์ เรียบร้อย (ข้อมูลคนไข้ถูกทำลายจากแบบร่างเพื่อความปลอดภัยเรียบร้อย)`
       );
 
       // Clear draft and reset active form for patient data privacy on shared machines
@@ -372,97 +389,13 @@ export default function App() {
     } catch (e) {
       console.error(e);
       showToast(
-        'info',
-        'บันทึกข้อมูลสำเร็จแล้ว',
-        `บันทึกข้อมูล HN: ${formData.hn} เรียบร้อยแล้ว หาก PDF ไม่ดาวน์โหลดอัตโนมัติ ให้คลิกปุ่มพิมพ์หรือดูตัวอย่าง`
+        'error',
+        'เกิดข้อผิดพลาดในการสร้าง PDF',
+        `ไม่สามารถดาวน์โหลด PDF ได้ หากท่านต้องการพิมพ์ สามารถใช้ปุ่มพิมพ์ด่วนหรือดูตัวอย่างได้`
       );
     } finally {
       setIsSavingAndExporting(false);
     }
-  };
-
-  // Save only without downloading
-  const handleSaveOnly = () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    const saved = saveAssessmentToStorage(formData);
-    if (saved) {
-      saveFormDraft(formData);
-      updateSavedCount();
-      const nowStr = new Date().toLocaleTimeString('th-TH', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-      setLastAutoSavedTime(nowStr);
-      setAutoSaveStatus('saved');
-      showToast(
-        'success',
-        'บันทึกข้อมูลสำเร็จ',
-        `ข้อมูล HN: ${formData.hn} ถูกบันทึกลง Local Storage เรียบร้อยแล้ว`
-      );
-    } else {
-      showToast('error', 'เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้');
-    }
-  };
-
-  // 2. Search & Edit by HN (Main user requirement 2)
-  const handleQuickHnSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const query = topHnQuery.trim();
-    if (!query) {
-      setIsSearchModalOpen(true);
-      return;
-    }
-
-    const record = getAssessmentByHN(query);
-    if (record) {
-      setFormData(record);
-      saveFormDraft(record);
-      const nowStr = new Date().toLocaleTimeString('th-TH', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-      setLastAutoSavedTime(nowStr);
-      setAutoSaveStatus('saved');
-      setErrors({});
-      showToast(
-        'success',
-        'โหลดข้อมูลสำเร็จ',
-        `ดึงข้อมูลผู้ป่วย HN: ${record.hn} (${record.fullName}) มาพร้อมแก้ไขทันที`
-      );
-      setTopHnQuery('');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      showToast(
-        'info',
-        'ไม่พบข้อมูล HN',
-        `ไม่พบข้อมูลประเมินสำหรับ HN: ${query} ใน Local Storage ท่านสามารถเปิดดูรายการทั้งหมดได้`
-      );
-      setIsSearchModalOpen(true);
-    }
-  };
-
-  const handleSelectRecordFromModal = (record: PsychiatricAssessment) => {
-    setFormData(record);
-    saveFormDraft(record);
-    const nowStr = new Date().toLocaleTimeString('th-TH', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-    setLastAutoSavedTime(nowStr);
-    setAutoSaveStatus('saved');
-    setErrors({});
-    showToast(
-      'success',
-      'โหลดข้อมูลสำเร็จ',
-      `ดึงข้อมูลผู้ป่วย HN: ${record.hn} (${record.fullName}) พร้อมแก้ไขแล้ว`
-    );
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleLoadSamplePatient = () => {
@@ -573,26 +506,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Zone 2: HN Fast Lookup */}
-          <div className="flex items-center gap-3 flex-1 max-w-sm justify-center">
-            <form onSubmit={handleQuickHnSearch} className="w-full relative">
-              <input
-                type="text"
-                value={topHnQuery}
-                onChange={(e) => setTopHnQuery(e.target.value)}
-                placeholder="พิมพ์ HN เพื่อค้นหา/แก้ไข..."
-                className="w-full pl-9 pr-20 text-xs bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium py-1.5"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <button
-                type="submit"
-                className="absolute right-1 px-2.5 bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-medium rounded-md transition-colors cursor-pointer top-1 bottom-1"
-              >
-                ค้นหา HN
-              </button>
-            </form>
-          </div>
-
           {/* Zone 3: Primary Actions (Compact) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <PWAInstallButton />
@@ -617,20 +530,6 @@ export default function App() {
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span className="hidden sm:inline">ล้างฟอร์ม</span>
-            </button>
-
-            <button
-              onClick={() => setIsSearchModalOpen(true)}
-              className="text-xs font-medium text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer px-2 sm:px-2.5 py-1.5"
-              title="ดูประวัติผู้ป่วยทั้งหมดที่บันทึกไว้"
-            >
-              <History className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="hidden md:inline">ประวัติ HN</span>
-              {savedCount > 0 && (
-                <span className="px-1.5 py-0.2 bg-blue-600 text-white rounded text-[10px] font-bold">
-                  {savedCount}
-                </span>
-              )}
             </button>
           </div>
         </div>
@@ -717,6 +616,7 @@ export default function App() {
           </div>
 
           {/* Action Buttons - ultra slim & compact on iPhone */}
+          {/* Action Buttons - ultra slim & compact on iPhone */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Native Browser Print button */}
             <button
@@ -726,16 +626,6 @@ export default function App() {
             >
               <Printer className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               <span className="hidden sm:inline">พิมพ์ (A4)</span>
-            </button>
-
-            {/* Save Draft / Local Storage */}
-            <button
-              onClick={handleSaveOnly}
-              className="p-1.5 sm:px-3 sm:py-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-slate-600 flex items-center gap-1.5"
-              title="บันทึกข้อมูลลงในเครื่อง (Local Storage)"
-            >
-              <Save className="w-3.5 h-3.5 text-slate-300 shrink-0 sm:hidden" />
-              <span className="hidden sm:inline">บันทึก</span>
             </button>
 
             {/* Preview A4 */}
@@ -809,15 +699,6 @@ export default function App() {
 
       {/* On-Demand Modals */}
       <Suspense fallback={null}>
-        {isSearchModalOpen && (
-          <HnSearchModal
-            isOpen={isSearchModalOpen}
-            onClose={() => setIsSearchModalOpen(false)}
-            onSelectRecord={handleSelectRecordFromModal}
-            onRecordsChange={updateSavedCount}
-          />
-        )}
-
         {isPreviewModalOpen && (
           <PdfPreviewModal
             isOpen={isPreviewModalOpen}
@@ -844,7 +725,7 @@ export default function App() {
               สร้างแบบฟอร์มใหม่
             </h4>
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-              คุณต้องการล้างข้อมูลในฟอร์มเพื่อเริ่มประเมินผู้ป่วยรายใหม่ใช่หรือไม่? (ข้อมูลเดิมที่เคยบันทึกไว้ด้วยปุ่ม "บันทึก" จะยังคงอยู่ในประวัติ HN)
+              คุณต้องการล้างข้อมูลในฟอร์มเพื่อเริ่มประเมินผู้ป่วยรายใหม่ใช่หรือไม่? (ข้อมูลปัจจุบันในแบบร่างจะถูกทำลายเพื่อความปลอดภัยของข้อมูลผู้ป่วย)
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
