@@ -83,6 +83,104 @@ const renderCheck = (checked: boolean) => (
   </span>
 );
 
+const isNormalMseValue = (val: string): boolean => {
+  const normalized = val.trim().toLowerCase();
+  return (
+    normalized === 'normal' ||
+    normalized === 'intact' ||
+    normalized === 'euthymic' ||
+    normalized === 'logical/coherent' ||
+    normalized === 'logical' ||
+    normalized === 'none' ||
+    normalized === 'ปกติ' ||
+    normalized === 'grossly intact'
+  );
+};
+
+const renderMseArray = (values: string[] | undefined) => {
+  if (!values || values.length === 0) {
+    return <span className="text-slate-400">-</span>;
+  }
+
+  // Check if it's purely a single normal value
+  if (values.length === 1 && isNormalMseValue(values[0])) {
+    return <span className="text-[#64748b] font-normal">{values[0]}</span>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+      {values.map((val, idx) => {
+        const isNormal = isNormalMseValue(val);
+        return (
+          <span
+            key={idx}
+            className={isNormal ? 'text-[#64748b] font-normal' : 'text-black font-medium'}
+          >
+            {val}
+            {idx < values.length - 1 && <span className="text-slate-300 ml-1">,</span>}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+const renderSingleValue = (val: string | undefined) => {
+  if (!val) return <span className="text-slate-400">-</span>;
+  const isNormal = isNormalMseValue(val);
+  return (
+    <span className={isNormal ? 'text-[#64748b] font-normal' : 'text-black font-medium'}>
+      {val}
+    </span>
+  );
+};
+
+const renderInsight = (val: string | undefined) => {
+  if (!val) return <span className="text-slate-400">-</span>;
+  // If insight contains 6 or true, it's normal
+  const isNormal = val.includes('6') || val.toLowerCase().includes('true');
+  return (
+    <span className={isNormal ? 'text-[#64748b] font-normal' : 'text-black font-medium'}>
+      {val}
+    </span>
+  );
+};
+
+const renderOrientation = (time: boolean, place: boolean, person: boolean) => {
+  if (time && place && person) {
+    return <span className="text-[#64748b] font-normal">Intact (Time, Place, Person)</span>;
+  }
+  const parts = [];
+  if (time) {
+    parts.push(<span className="text-[#64748b] font-normal">Time ✓</span>);
+  } else {
+    parts.push(<span className="text-black font-medium">Time ✗</span>);
+  }
+
+  if (place) {
+    parts.push(<span className="text-[#64748b] font-normal">Place ✓</span>);
+  } else {
+    parts.push(<span className="text-black font-medium">Place ✗</span>);
+  }
+
+  if (person) {
+    parts.push(<span className="text-[#64748b] font-normal">Person ✓</span>);
+  } else {
+    parts.push(<span className="text-black font-medium">Person ✗</span>);
+  }
+
+  return (
+    <div className="flex gap-x-2 flex-wrap items-center">
+      {parts.map((p, idx) => (
+        <React.Fragment key={idx}>
+          {idx > 0 && <span className="text-slate-300 text-[11pt]">·</span>}
+          {p}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+};
+
 const pageSheetStyle: React.CSSProperties = {
   width: '210mm',
   minHeight: '297mm',
@@ -372,44 +470,95 @@ const AssessmentPdfDocumentComponent: React.FC<Props> = ({ data, showPageBadges 
 
           {/* SECTION D: Mental Status Examination (MSE) */}
           <div className="mb-2.5 avoid-break-inside">
-            <div className="border-b border-black pb-0.5 mb-1 text-black font-bold text-[15pt]">
+            <div className="border-b border-black pb-0.5 mb-1.5 text-black font-bold text-[15pt]">
               D. Mental Status Examination (การตรวจสภาพจิต - MSE)
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[14.5pt]">
-              <div>
-                <span className="font-bold">1. Appearance & Psychomotor:</span>{' '}
-                {data.appearanceBehavior && data.appearanceBehavior.length > 0 ? data.appearanceBehavior.join(', ') : '-'}
+            
+            {/* 2-Column Key-Value Grid without vertical borders */}
+            <div className="border-t border-[#e5e7eb] text-[14pt]" style={{ borderTopWidth: '0.5px' }}>
+              {/* Row 1 */}
+              <div className="flex border-b border-[#e5e7eb] py-1 items-start" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="w-1/2 flex items-start pr-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">1. Appearance:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.appearanceBehavior)}
+                  </div>
+                </div>
+                <div className="w-1/2 flex items-start pl-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">2. Speech:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.speech)}
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-bold">2. Speech:</span>{' '}
-                {data.speech && data.speech.length > 0 ? data.speech.join(', ') : '-'}
+
+              {/* Row 2 */}
+              <div className="flex border-b border-[#e5e7eb] py-1 items-start" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="w-1/2 flex items-start pr-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">3. Mood & Affect:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.moodAffect)}
+                  </div>
+                </div>
+                <div className="w-1/2 flex items-start pl-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">4. Thought Process:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.thoughtProcess)}
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-bold">3. Mood & Affect:</span>{' '}
-                {data.moodAffect && data.moodAffect.length > 0 ? data.moodAffect.join(', ') : '-'}
+
+              {/* Row 3 */}
+              <div className="flex border-b border-[#e5e7eb] py-1 items-start" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="w-1/2 flex items-start pr-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">5. Thought Content:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.thoughtContent)}
+                    {data.delusionDetail && (
+                      <div className="text-[13pt] text-black font-medium mt-0.5">
+                        (Delusion: {data.delusionDetail})
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="w-1/2 flex items-start pl-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">6. Perception:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderMseArray(data.perception)}
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="font-bold">4. Thought Process:</span>{' '}
-                {data.thoughtProcess && data.thoughtProcess.length > 0 ? data.thoughtProcess.join(', ') : '-'}
+
+              {/* Row 4 */}
+              <div className="flex border-b border-[#e5e7eb] py-1 items-start" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="w-1/2 flex items-start pr-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">7. Orientation:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderOrientation(data.orientationTime, data.orientationPlace, data.orientationPerson)}
+                  </div>
+                </div>
+                <div className="w-1/2 flex items-start pl-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">8. Attn & Memory:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderSingleValue(data.attentionMemory)}
+                  </div>
+                </div>
               </div>
-              <div className="col-span-2">
-                <span className="font-bold">5. Thought Content:</span>{' '}
-                {data.thoughtContent && data.thoughtContent.length > 0 ? data.thoughtContent.join(', ') : '-'}
-                {data.delusionDetail && ` (Delusion: ${data.delusionDetail})`}
-              </div>
-              <div>
-                <span className="font-bold">6. Perception:</span>{' '}
-                {data.perception && data.perception.length > 0 ? data.perception.join(', ') : 'Normal'}
-              </div>
-              <div>
-                <span className="font-bold">7. Orientation:</span>{' '}
-                Time: {data.orientationTime ? '✓' : '✗'}, Place: {data.orientationPlace ? '✓' : '✗'}, Person: {data.orientationPerson ? '✓' : '✗'}
-              </div>
-              <div>
-                <span className="font-bold">8. Attention & Memory:</span> {data.attentionMemory || '-'}
-              </div>
-              <div>
-                <span className="font-bold">9. Insight & Judgment:</span> Insight: {data.insight || '-'}, Judgment: {data.judgment || '-'}
+
+              {/* Row 5 */}
+              <div className="flex border-b border-[#e5e7eb] py-1 items-start" style={{ borderBottomWidth: '0.5px' }}>
+                <div className="w-1/2 flex items-start pr-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">9. Insight:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderInsight(data.insight)}
+                  </div>
+                </div>
+                <div className="w-1/2 flex items-start pl-3">
+                  <span className="font-bold w-[140px] shrink-0 text-black leading-tight">10. Judgment:</span>
+                  <div className="flex-1 leading-tight text-justify">
+                    {renderSingleValue(data.judgment)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
