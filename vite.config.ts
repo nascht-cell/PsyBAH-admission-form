@@ -88,10 +88,12 @@ export default defineConfig(() => {
       }),
     ],
     esbuild: {
+      target: 'chrome80',
       pure: ['console.log', 'console.debug', 'console.info', 'console.trace'],
     },
     build: {
-      target: 'esnext',
+      target: ['chrome80', 'es2020'],
+      cssTarget: ['chrome80', 'es2020'],
       minify: 'esbuild',
       cssCodeSplit: true,
       chunkSizeWarningLimit: 800,

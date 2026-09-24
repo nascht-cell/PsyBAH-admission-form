@@ -15,12 +15,23 @@
   }
 
   body {
-    font-family: 'TH Sarabun PSK', 'TH Sarabun New', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'TH Sarabun PSK', 'TH Sarabun New', 'THSarabunNew', 'Sarabun', Tahoma, 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
     color: #1e293b;
     background-color: #f8fafc;
     width: 100%;
     min-height: 100vh;
   }
+}
+
+/* Legacy Windows 7 / Chrome Backdrop & GPU Compatibility Fallbacks */
+.no-backdrop-filter [class*="backdrop-blur"],
+.no-backdrop-filter .backdrop-blur-xs,
+.no-backdrop-filter .backdrop-blur-sm,
+.no-backdrop-filter .backdrop-blur-md,
+.no-backdrop-filter .backdrop-blur-lg {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
 }
 
 /* Authentic TH Sarabun PSK 16pt Document Formatting */

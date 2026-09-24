@@ -1,5 +1,4 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -7,7 +6,7 @@ import path from 'path';
 dotenv.config();
 
 const app = express();
-const port = 3000;
+const port = Number(process.env.PORT) || 3000;
 
 // Body parser with high limit for audio payloads
 app.use(express.json({ limit: '60mb' }));
@@ -73,9 +72,15 @@ app.post('/api/transcribe', async (req, res) => {
   }
 });
 
-// Mount Vite or serve static
+// Health check endpoint for Cloud Run
+app.get('/api/health', (_req, res) => {
+  res.status(200).send('OK');
+});
+
+// Mount Vite in dev or serve static dist in production
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -83,13 +88,13 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.resolve('.', 'dist')));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.resolve('.', 'dist', 'index.html'));
     });
   }
 
   app.listen(port, '0.0.0.0', () => {
-    console.log(`Server listening at http://0.0.0.0:${port}`);
+    console.log(`Server listening on port ${port}`);
   });
 }
 
